@@ -1,4 +1,6 @@
-# Milky Way 3D Dust and Superbubble Viewer
+# Milky Way 3D Dust and Bubble Viewer
+
+Read this in: [English](README.md) | [中文](README.zh-CN.md)
 
 Interactive Three.js visualization of the local Milky Way 3D dust distribution,
 open superbubbles, distance-resolved bubbles, and the Radcliffe Wave reference
@@ -18,14 +20,15 @@ https://github.com/Grapeknight/milky-way-3d-dust-viewer/releases/latest
 
 ## Data Sources
 
-- The 3D dust background is based on Wang, T., Yuan, H., et al. 2025,
-  ApJS, 280, 15: all-sky 3D dust map.
-- The open superbubbles are from Wang, T., Yuan, H., et al. 2026.
-  The Milky Way as a "Phantom Galaxy": A Bubble-Dominated Disk Sculpted by
-  Stellar Feedback and the Origin of the Radcliffe Wave. to be resubmitted.
-- The bubbles are from Wang, T., Yuan, H., et al. 2026.
-  The Bubble Catchers Project: First Catalog of Distance-Resolved Bubbles in
-  the Milky Way. to be resubmitted.
+- 3D dust background: Wang, T., Yuan, H., Chen, B., Xiang, M., Zhang, R.,
+  Huang, B., Gu, H., Wang, S., and Li, J. 2025, The Astrophysical Journal
+  Supplement Series, 280, 15, "An all-sky 3D dust map based on Gaia and
+  LAMOST", DOI: [10.3847/1538-4365/adea39](https://doi.org/10.3847/1538-4365/adea39).
+- Open superbubbles: Wang, T., Yuan, H., et al. 2026. The Milky Way as a
+  "Phantom Galaxy": A Bubble-Dominated Disk Sculpted by Stellar Feedback and
+  the Origin of the Radcliffe Wave. to be resubmitted.
+- Bubbles: Wang, T., Yuan, H., et al. 2026. The Bubble Catchers Project: First
+  Catalog of Distance-Resolved Bubbles in the Milky Way. to be resubmitted.
 
 ## What Is Included
 
@@ -56,3 +59,12 @@ same directory.
 
 If this viewer or its data products are used in a presentation, website, or
 publication, please cite the data sources listed above.
+
+## Contact
+
+For questions, suggestions, or technical discussion, please contact the author
+team via GitHub issues or email:
+
+- Prof. Yuan Haibo: yuanhb@bnu.edu.cn
+- Dr. Wang Tao: wt@mail.bnu.edu.cn
+
