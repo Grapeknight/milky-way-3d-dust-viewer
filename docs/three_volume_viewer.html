@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Three.js Dust Volume Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #07080a;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    #app {
+      width: 100vw;
+      height: 100vh;
+    }
+    .toolbar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 6px;
+      color: #eef2f5;
+      background: rgba(9, 11, 15, 0.84);
+      backdrop-filter: blur(6px);
+      font-size: 12px;
+    }
+    .button-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+    .toolbar-toggle-row {
+      display: flex;
+      justify-content: flex-start;
+    }
+    .toolbar.is-collapsed {
+      gap: 0;
+    }
+    .toolbar.is-collapsed > :not(.toolbar-toggle-row) {
+      display: none;
+    }
+    .toolbar.is-collapsed .toolbar-toggle-row {
+      display: flex;
+    }
+    .toolbar button {
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 5px;
+      color: #eef2f5;
+      background: #26313d;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .toolbar button.is-off {
+      color: #aab3bd;
+      background: #161b22;
+      border-color: rgba(255,255,255,0.10);
+    }
+    .control {
+      display: grid;
+      grid-template-columns: 72px 132px 38px;
+      gap: 8px;
+      align-items: center;
+    }
+    .control label {
+      color: rgba(238,242,245,0.78);
+      white-space: nowrap;
+    }
+    .control input {
+      width: 132px;
+      accent-color: #8bb7e0;
+    }
+    .control output {
+      min-width: 38px;
+      text-align: right;
+      color: rgba(238,242,245,0.88);
+      font-variant-numeric: tabular-nums;
+    }
+    .filter-panel {
+      display: grid;
+      gap: 6px;
+      padding-top: 3px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .filter-title {
+      color: rgba(238,242,245,0.82);
+      font-weight: 600;
+    }
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filter-row label {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      color: rgba(238,242,245,0.78);
+      white-space: nowrap;
+    }
+    .filter-row input[type="checkbox"] {
+      margin: 0;
+      accent-color: #8bb7e0;
+    }
+    .filter-row select {
+      width: 100%;
+      height: 28px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 5px;
+      color: #eef2f5;
+      background: #161b22;
+      font-size: 12px;
+    }
+    .bubble-info {
+      color: rgba(238,242,245,0.72);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .viewer-note {
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      color: rgba(238,242,245,0.72);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .viewer-note a {
+      color: #9cc7ee;
+      text-decoration: none;
+    }
+    .viewer-note a:hover {
+      text-decoration: underline;
+    }
+    .gpu-warning {
+      color: #ff6b6b;
+      font-weight: 600;
+    }
+    .model-control {
+      display: grid;
+      gap: 4px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .model-title {
+      color: rgba(238,242,245,0.78);
+    }
+    .resolution-buttons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .toolbar .resolution-button {
+      height: 28px;
+      min-width: 52px;
+      padding: 0 10px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 5px;
+      color: #eef2f5;
+      background: #161b22;
+      font-size: 12px;
+    }
+    .toolbar .resolution-button.is-active {
+      color: #07111c;
+      background: #8bb7e0;
+      border-color: rgba(139,183,224,0.95);
+    }
+    .toolbar .resolution-button:disabled {
+      cursor: progress;
+      opacity: 0.72;
+    }
+    .hud {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 10;
+      color: rgba(238,242,245,0.78);
+      font-size: 12px;
+      line-height: 1.4;
+      text-align: right;
+      pointer-events: none;
+    }
+    .tooltip {
+      position: fixed;
+      z-index: 20;
+      display: none;
+      max-width: 220px;
+      padding: 5px 7px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 5px;
+      color: #eef2f5;
+      background: rgba(9, 11, 15, 0.90);
+      font-size: 12px;
+      line-height: 1.25;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .status {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(238,242,245,0.84);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="toolbar-toggle-row">
+      <button type="button" id="controlsToggle" aria-expanded="true">Hide controls</button>
+    </div>
+    <div class="button-row">
+      <button type="button" id="dustToggle">Dust</button>
+      <button type="button" id="resetView">Reset view</button>
+      <button type="button" id="osbToggle" class="is-off">Open superbubbles</button>
+      <button type="button" id="bubblesToggle" class="is-off">Bubbles</button>
+      <button type="button" id="rwToggle" class="is-off">Radcliffe Wave</button>
+    </div>
+    <div class="filter-panel">
+      <div class="filter-title">Open superbubbles</div>
+      <div class="filter-row">
+        <label><input type="checkbox" data-osb-color="#1e88e5"><span class="swatch" style="background:#1e88e5"></span>North-open</label>
+        <label><input type="checkbox" data-osb-color="#e53935"><span class="swatch" style="background:#e53935"></span>South-open</label>
+        <label><input type="checkbox" data-osb-color="#2e7d32"><span class="swatch" style="background:#2e7d32"></span>Disk-penetrating</label>
+      </div>
+      <div class="filter-row">
+        <select id="osbIdFilter" aria-label="Open superbubble ID"></select>
+      </div>
+    </div>
+    <div class="filter-panel">
+      <div class="filter-title">Bubbles</div>
+      <div class="filter-row">
+        <label><input type="checkbox" data-bubble-grade="A">Grade A</label>
+        <label><input type="checkbox" data-bubble-grade="B">Grade B</label>
+      </div>
+      <div class="filter-row">
+        <select id="bubbleIdFilter" aria-label="Bubble ID"></select>
+      </div>
+      <div class="bubble-info" id="bubbleInfo">Select one bubble to show l, b, D, and distance.</div>
+    </div>
+    <div class="viewer-note">
+      Note: To enable interactive visualization, the default 3D extinction map is sampled at 10 pc,<br>
+      and voxels with dust density &lt; 0.05 mag kpc<sup>-1</sup> are fully transparent.<br>
+      <span class="gpu-warning">The optional 5 pc resolution is provided in the server deployment package and has a high GPU cost.</span><br>
+      Individual bubbles should not be expected to have clear one-to-one 3D dust counterparts;<br>
+      use a <a href="https://nadc.china-vo.org/data/dustmaps/plot/sin" target="_blank" rel="noopener noreferrer">sky-view dust map</a>
+      for detailed bubble inspection.
+    </div>
+    <div class="model-control">
+      <div class="model-title">Physical resolution</div>
+      <div class="resolution-buttons" id="dustModelButtons" aria-label="Physical resolution">
+        <button type="button" class="resolution-button is-active" data-dust-model="10pc" aria-pressed="true">10pc</button>
+      </div>
+    </div>
+    <div class="control">
+      <label for="opacityScale">Opacity</label>
+      <input id="opacityScale" type="range" min="0.10" max="15.00" step="0.05" value="4.00">
+      <output id="opacityValue">4.00</output>
+    </div>
+  </div>
+  <div id="app"></div>
+  <div class="hud" id="hud"></div>
+  <div class="tooltip" id="tooltip"></div>
+  <div class="status" id="status">Loading volume data...</div>
+  <script src="three_volume_viewer_app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+node_modules/
+.viewer_build/
+*.tmp
+*.log
+
+# Large generated deployment artifacts are distributed through GitHub Releases.
+*.zip
+*.7z
+*.tar
+*.gz
+*.bin
+!docs/dust_volume_u8_sxy1_sz1.bin
+three_volume_data_base64.js
+three_volume_data_5pc_sigma1_gzip_base64.js
+
