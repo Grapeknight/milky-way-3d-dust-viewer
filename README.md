@@ -3,8 +3,7 @@
 Read this in: [English](README.md) | [中文](README.zh-CN.md)
 
 Interactive Three.js visualization of the local Milky Way 3D dust distribution,
-open superbubbles, distance-resolved bubbles, and the Radcliffe Wave reference
-plane.
+open superbubbles, and 3D views of bubbles.
 
 ## Live Preview
 
@@ -42,9 +41,9 @@ Release as `three_volume_viewer_server_package.zip`.
 
 ## Notes on Large Files
 
-GitHub blocks regular repository files larger than 100 MiB. The 5 pc volume is
-about 578 MB, so it is intentionally not tracked in git. It is distributed as
-part of the Release deployment ZIP instead.
+For online preview and version control, this repository tracks the 10 pc preview
+data that can be hosted directly. The complete server deployment package,
+including the 5 pc resolution volume, is distributed through GitHub Releases.
 
 ## Usage
 
@@ -67,4 +66,3 @@ team via GitHub issues or email:
 
 - Prof. Yuan Haibo: yuanhb@bnu.edu.cn
 - Dr. Wang Tao: wt@mail.bnu.edu.cn
-
