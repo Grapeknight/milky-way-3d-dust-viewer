@@ -35,9 +35,7 @@ https://github.com/Grapeknight/milky-way-3d-dust-viewer/releases/latest
 - `DEPLOYMENT.md`: instructions for website operators.
 
 The complete 10 pc + 5 pc static deployment package is attached to each GitHub
-Release as split files named `three_volume_viewer_server_package.zip.partNN`.
-Download all parts and concatenate them to recover
-`three_volume_viewer_server_package.zip`.
+Release as `three_volume_viewer_server_package.zip`.
 
 ## Notes on Large Files
 
@@ -49,11 +47,10 @@ part of the Release deployment ZIP instead.
 
 For online viewing, use the GitHub Pages link above.
 
-For production hosting, download all `three_volume_viewer_server_package.zip.partNN`
-files from the latest Release, concatenate them into
-`three_volume_viewer_server_package.zip`, unzip it into one web directory, and
-serve `index.html` or `three_volume_viewer.html` as static files. Keep all files
-in the ZIP in the same directory.
+For production hosting, download `three_volume_viewer_server_package.zip` from
+the latest Release, unzip it into one web directory, and serve `index.html` or
+`three_volume_viewer.html` as static files. Keep all files in the ZIP in the
+same directory.
 
 ## Citation
 
