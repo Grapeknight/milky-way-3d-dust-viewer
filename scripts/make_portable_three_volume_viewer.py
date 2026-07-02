@@ -237,6 +237,7 @@ HTML = """<!doctype html>
     <div class="toolbar-toggle-row">
       <button type="button" id="controlsToggle" aria-expanded="true">Hide controls</button>
     </div>
+    <!-- Primary scene visibility and camera controls. -->
     <div class="button-row">
       <button type="button" id="dustToggle">Dust</button>
       <button type="button" id="resetView">Reset view</button>
@@ -244,6 +245,7 @@ HTML = """<!doctype html>
       <button type="button" id="bubblesToggle" class="is-off">Bubbles</button>
       <button type="button" id="rwToggle" class="is-off">Radcliffe Wave</button>
     </div>
+    <!-- Open-superbubble filters: group colors and single-object selection are mutually exclusive. -->
     <div class="filter-panel">
       <div class="filter-title">Open superbubbles</div>
       <div class="filter-row">
@@ -255,6 +257,7 @@ HTML = """<!doctype html>
         <select id="osbIdFilter" aria-label="Open superbubble ID"></select>
       </div>
     </div>
+    <!-- Bubble filters: Grade A/B checkboxes are cleared when an individual bubble is selected. -->
     <div class="filter-panel">
       <div class="filter-title">Bubbles</div>
       <div class="filter-row">
@@ -274,6 +277,7 @@ HTML = """<!doctype html>
       use a <a href="https://nadc.china-vo.org/data/dustmaps/plot/sin" target="_blank" rel="noopener noreferrer">sky-view dust map</a>
       for detailed bubble inspection.
     </div>
+    <!-- Physical-resolution switching replaces the 3D texture while keeping the same scene controls. -->
     <div class="model-control">
       <div class="model-title">Physical resolution</div>
       <div class="resolution-buttons" id="dustModelButtons" aria-label="Physical resolution">
@@ -281,6 +285,14 @@ HTML = """<!doctype html>
         <button type="button" class="resolution-button" data-dust-model="5pc" aria-pressed="false">5pc</button>
       </div>
     </div>
+    <!-- Expensive shader lighting is opt-in; it adds gradient normals and a short shadow march. -->
+    <div class="model-control">
+      <div class="model-title">Rendering quality</div>
+      <div class="resolution-buttons" aria-label="Rendering quality">
+        <button type="button" id="lightingToggle" class="resolution-button is-off" aria-pressed="false">Gradient lighting</button>
+      </div>
+    </div>
+    <!-- Opacity remains the lightweight day-to-day visual tuning control. -->
     <div class="control">
       <label for="opacityScale">Opacity</label>
       <input id="opacityScale" type="range" min="0.10" max="15.00" step="0.05" value="4.00">
@@ -291,7 +303,7 @@ HTML = """<!doctype html>
   <div class="hud" id="hud"></div>
   <div class="tooltip" id="tooltip"></div>
   <div class="status" id="status">Loading volume data...</div>
-  <script src="three_volume_viewer_app.js"></script>
+  <script src="three_volume_viewer_app.js?v=20260702-gradient-lighting"></script>
 </body>
 </html>
 """

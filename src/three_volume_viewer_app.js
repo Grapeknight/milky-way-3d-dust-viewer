@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls.js";
 
+// Keep all loadable dust-volume variants in one table so the UI, metadata,
+// and data-payload names stay synchronized when switching between 10 pc and 5 pc.
 const VOLUME_VARIANTS = {
   "10pc": {
     label: "10 pc interactive model",
@@ -17,6 +19,8 @@ const VOLUME_VARIANTS = {
   },
 };
 
+// Direct file:// access cannot fetch binary files reliably, so the portable
+// viewer can fall back to base64 payload scripts generated next to the HTML.
 function decodeBase64(data) {
   const binary = atob(data);
   const bytes = new Uint8Array(binary.length);
@@ -34,6 +38,8 @@ function loadScript(src) {
   });
 }
 
+// The large 5 pc file:// payload is gzip-compressed to keep the standalone
+// fallback smaller; HTTP(S) deployments use the raw .bin file instead.
 async function gunzipBytes(bytes) {
   if (!("DecompressionStream" in window)) {
     throw new Error("This browser cannot decompress the local 5 pc payload. Use a local HTTP server instead.");
@@ -42,6 +48,9 @@ async function gunzipBytes(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
+// Local file mode loads pre-bundled data scripts. This path preserves the old
+// double-click workflow for small deployments, while the server path below is
+// preferred for normal website hosting.
 async function loadFileModeData(modelKey) {
   const variant = VOLUME_VARIANTS[modelKey] || VOLUME_VARIANTS["10pc"];
   if (!window[variant.payloadGlobal]) {
@@ -64,6 +73,8 @@ async function loadFileModeData(modelKey) {
   };
 }
 
+// Server mode streams the metadata and external binary volume. This keeps the
+// HTML small and is required for the full 5 pc deployment package.
 async function loadServerModeData(modelKey) {
   const variant = VOLUME_VARIANTS[modelKey] || VOLUME_VARIANTS["10pc"];
   const metadataResponse = await fetch(variant.metadataJson, { cache: "no-store" });
@@ -76,6 +87,8 @@ async function loadServerModeData(modelKey) {
   return { metadata, volumeData, mode: "external binary data" };
 }
 
+// Prefer server-style loading whenever possible, then fall back to the local
+// base64 payloads so the same application code supports both deployment modes.
 async function loadViewerData(modelKey = "10pc") {
   if (location.protocol === "file:") {
     return loadFileModeData(modelKey);
@@ -160,6 +173,8 @@ function buildScene(metadata, volumeData, dataMode) {
 
   const controls = initControls(camera, renderer);
 
+  // WebGL stores the dust density as a single-channel 3D texture. The metadata
+  // dimensions are checked here so mismatched .json/.bin files fail early.
   function createVolumeTexture(currentMetadata, currentVolumeData) {
     const expectedBytes = currentMetadata.grid.nx * currentMetadata.grid.ny * currentMetadata.grid.nz;
     if (currentVolumeData.length !== expectedBytes) {
@@ -206,6 +221,7 @@ function buildScene(metadata, volumeData, dataMode) {
       uSteps: { value: activeMetadata.render.raySteps },
       uOpacityScale: { value: activeMetadata.render.opacityScale },
       uBrightness: { value: activeMetadata.render.brightness },
+      uGradientLightingEnabled: { value: false },
       uTexelSize: {
         value: new THREE.Vector3(
           1 / activeMetadata.grid.nx,
@@ -232,9 +248,12 @@ function buildScene(metadata, volumeData, dataMode) {
       uniform int uSteps;
       uniform float uOpacityScale;
       uniform float uBrightness;
+      uniform bool uGradientLightingEnabled;
       uniform vec3 uTexelSize;
       out vec4 outColor;
 
+      // Ray-box intersection gives the entry and exit distances through the
+      // physical dust volume in scene coordinates.
       vec2 intersectBox(vec3 origin, vec3 direction) {
         vec3 invDirection = 1.0 / direction;
         vec3 t0 = (uBoxMin - origin) * invDirection;
@@ -246,15 +265,22 @@ function buildScene(metadata, volumeData, dataMode) {
         return vec2(nearT, farT);
       }
 
+      // Per-fragment jitter offsets the first ray step and reduces regular
+      // sampling banding without increasing the ray step count.
       float rand(vec2 seed) {
         return fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453123);
       }
 
+      // All density lookups are clamped because the ray can land just outside
+      // the normalized texture cube at numerical boundaries.
       float densityAt(vec3 texCoord) {
         vec3 clampedCoord = clamp(texCoord, vec3(0.0), vec3(1.0));
         return texture(uData, clampedCoord).r;
       }
 
+      // Central differences estimate a density normal. This is expensive
+      // because it adds six 3D texture reads per shaded sample, so it is used
+      // only when the Gradient lighting control is enabled.
       vec3 densityGradient(vec3 texCoord) {
         vec3 e = uTexelSize * 1.35;
         float dx = densityAt(texCoord + vec3(e.x, 0.0, 0.0)) - densityAt(texCoord - vec3(e.x, 0.0, 0.0));
@@ -263,6 +289,8 @@ function buildScene(metadata, volumeData, dataMode) {
         return vec3(dx, dy, dz);
       }
 
+      // A short secondary march toward the key light approximates self-shadow.
+      // It improves depth cues but is deliberately opt-in for GPU performance.
       float shadowAlongLight(vec3 texCoord, vec3 lightDirection, float stepLength) {
         float shadow = 0.0;
         vec3 shadowStep = lightDirection * stepLength * 0.45;
@@ -276,6 +304,8 @@ function buildScene(metadata, volumeData, dataMode) {
         return exp(-shadow * 0.34);
       }
 
+      // ACES tone mapping keeps the grayscale dust volume soft and avoids a
+      // harsh colorbar-like appearance even when lighting is enabled.
       vec3 acesToneMap(vec3 color) {
         return clamp(
           (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14),
@@ -315,28 +345,34 @@ function buildScene(metadata, volumeData, dataMode) {
           vec3 texCoord = (position - uBoxMin) / boxScale;
           float density = densityAt(texCoord);
           if (density > 0.003) {
-            vec3 gradient = densityGradient(texCoord);
-            float gradientMagnitude = length(gradient);
-            vec3 normal = gradientMagnitude > 0.0008 ? normalize(-gradient) : -rayDirection;
-
-            float shadow = shadowAlongLight(texCoord, keyDirection, delta / max(max(boxScale.x, boxScale.y), boxScale.z));
-            float keyDiffuse = max(dot(normal, keyDirection), 0.0);
-            float fillDiffuse = max(dot(normal, fillDirection), 0.0);
-            float rim = pow(max(dot(normal, rimDirection), 0.0), 2.2);
-            vec3 halfVector = normalize(keyDirection - rayDirection);
-            float specular = pow(max(dot(normal, halfVector), 0.0), 80.0) * 0.20;
-
-            vec3 lighting =
-              ambientColor +
-              keyColor * (0.68 * keyDiffuse + specular) * shadow +
-              fillColor * 0.24 * fillDiffuse +
-              rimColor * 0.22 * rim;
-
-            float surfaceBoost = 1.0 + clamp(gradientMagnitude * 18.0, 0.0, 1.35);
-            float shapedDensity = pow(density, 0.86) * surfaceBoost;
-            float sampleAlpha = 1.0 - exp(-shapedDensity * uOpacityScale * delta);
+            float shapedDensity = pow(density, 0.86);
             vec3 baseColor = mix(vec3(0.58, 0.64, 0.70), vec3(1.0), pow(density, 0.55));
-            vec3 sampleColor = acesToneMap(baseColor * lighting * uBrightness * 1.35);
+            vec3 sampleColor = acesToneMap(baseColor * uBrightness * 1.08);
+
+            if (uGradientLightingEnabled) {
+              vec3 gradient = densityGradient(texCoord);
+              float gradientMagnitude = length(gradient);
+              vec3 normal = gradientMagnitude > 0.0008 ? normalize(-gradient) : -rayDirection;
+
+              float shadow = shadowAlongLight(texCoord, keyDirection, delta / max(max(boxScale.x, boxScale.y), boxScale.z));
+              float keyDiffuse = max(dot(normal, keyDirection), 0.0);
+              float fillDiffuse = max(dot(normal, fillDirection), 0.0);
+              float rim = pow(max(dot(normal, rimDirection), 0.0), 2.2);
+              vec3 halfVector = normalize(keyDirection - rayDirection);
+              float specular = pow(max(dot(normal, halfVector), 0.0), 80.0) * 0.20;
+
+              vec3 lighting =
+                ambientColor +
+                keyColor * (0.68 * keyDiffuse + specular) * shadow +
+                fillColor * 0.24 * fillDiffuse +
+                rimColor * 0.22 * rim;
+
+              float surfaceBoost = 1.0 + clamp(gradientMagnitude * 18.0, 0.0, 1.35);
+              shapedDensity *= surfaceBoost;
+              sampleColor = acesToneMap(baseColor * lighting * uBrightness * 1.35);
+            }
+
+            float sampleAlpha = 1.0 - exp(-shapedDensity * uOpacityScale * delta);
             accumulated.rgb += (1.0 - accumulated.a) * sampleAlpha * sampleColor;
             accumulated.a += (1.0 - accumulated.a) * sampleAlpha;
             if (accumulated.a > 0.97) break;
@@ -373,6 +409,8 @@ function buildScene(metadata, volumeData, dataMode) {
 
   const pickableObjects = [];
 
+  // Catalog overlays are grouped separately so top-level visibility can be
+  // controlled without losing per-item filter state.
   const osbRoot = new THREE.Group();
   osbRoot.visible = false;
   scene.add(osbRoot);
@@ -478,6 +516,8 @@ function buildScene(metadata, volumeData, dataMode) {
   const bubbleInfo = document.getElementById("bubbleInfo");
   const bubbleById = new Map(bubbleObjects.map((object) => [object.userData.id, object.userData]));
 
+  // The selects are populated from metadata so the UI always reflects the
+  // generated catalog payload rather than a hard-coded list.
   populateSelect(
     osbIdFilter,
     Array.from(new Set(osbObjects.map((object) => object.userData.id))).sort(naturalIdSort),
@@ -542,6 +582,8 @@ function buildScene(metadata, volumeData, dataMode) {
     bubblesToggle.classList.toggle("is-off", !bubblesRoot.visible);
   }
 
+  // Color/type filters and individual-ID filters are mutually exclusive. A
+  // group checkbox clears the select, while selecting an ID clears the group.
   function applyOsbFilters() {
     const selectedId = osbIdFilter.value;
     if (selectedId !== "__all__") {
@@ -585,6 +627,7 @@ function buildScene(metadata, volumeData, dataMode) {
       `${visibleCount(osbObjects).toLocaleString()} / ${openSuperbubbleCount.toLocaleString()} Open superbubbles selected<br>` +
       `${visibleCount(bubbleObjects).toLocaleString()} / ${bubbles.length.toLocaleString()} Grade A/B bubbles selected<br>` +
       "Radcliffe Wave plane: y = tan(60 deg) x + 0.6 kpc<br>" +
+      `Gradient lighting: ${material.uniforms.uGradientLightingEnabled.value ? "on" : "off"}<br>` +
       `Data mode: ${activeDataMode}`;
   }
 
@@ -689,6 +732,20 @@ function buildScene(metadata, volumeData, dataMode) {
     opacityOutput.value = value.toFixed(2);
   });
 
+  const lightingToggle = document.getElementById("lightingToggle");
+  if (lightingToggle) {
+    lightingToggle.classList.add("is-off");
+    lightingToggle.setAttribute("aria-pressed", "false");
+    lightingToggle.addEventListener("click", () => {
+      const enabled = !material.uniforms.uGradientLightingEnabled.value;
+      material.uniforms.uGradientLightingEnabled.value = enabled;
+      lightingToggle.classList.toggle("is-off", !enabled);
+      lightingToggle.classList.toggle("is-active", enabled);
+      lightingToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+      updateHud();
+    });
+  }
+
   const modelButtons = Array.from(document.querySelectorAll("[data-dust-model]"));
 
   function syncModelButtons() {
@@ -752,6 +809,8 @@ function buildScene(metadata, volumeData, dataMode) {
     syncModelButtons();
   }
 
+  // Mouse picking checks only visible catalog overlays. This prevents hidden
+  // filters from showing stale IDs when the cursor crosses their geometry.
   const pointer = new THREE.Vector2();
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line.threshold = 0.035;
